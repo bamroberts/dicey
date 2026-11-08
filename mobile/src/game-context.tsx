@@ -25,6 +25,8 @@ type Session = LocalState & {
   setHandoff: React.Dispatch<React.SetStateAction<boolean>>;
   saveError: string | null;
   startGame: (seats: Seat[]) => void;
+  setupDraft: Seat[] | null;
+  prepareRematch: (seats: Seat[] | null) => void;
 };
 const Context = createContext<Session | null>(null);
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -38,6 +40,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     handoff: false,
     history: [],
   }));
+  const [setupDraft, prepareRematch] = useState<Seat[] | null>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -116,6 +119,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       value={{
         ...state,
         saveError,
+        setupDraft,
+        prepareRematch,
         setGame: (value) => {
           const now = new Date().toISOString();
           setState((current) => {
@@ -141,6 +146,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               typeof value === "function" ? value(current.handoff) : value,
           })),
         startGame: (seats) => {
+          prepareRematch(null);
           const gameId = randomUUID();
           setState((current) => ({
             ...current,

@@ -5,7 +5,7 @@ import { Avatar, Brand, Button, Copy, Page, s } from "../components/ui";
 import { useGame } from "../game-context";
 import { colors as c } from "../theme";
 export default function Home() {
-  const { game, setGame, setHandoff, saveError } = useGame();
+  const { game, setGame, setHandoff, saveError, prepareRematch } = useGame();
   const [abandon, setAbandon] = useState(false);
   return (
     <Page>
@@ -59,7 +59,13 @@ export default function Home() {
             onPress={() => setAbandon(true)}
           />
         ))}
-      <Button title="Play together →" onPress={() => router.push("/setup")} />
+      <Button
+        title="Play together →"
+        onPress={() => {
+          prepareRematch(null);
+          router.push("/setup");
+        }}
+      />
       <Button
         title="Challenge friends →"
         secondary

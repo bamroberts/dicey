@@ -1,3 +1,7 @@
+import { useNow } from "../hooks/use-now";
+import { InvitationActions } from "../components/invitation-actions";
+import { RematchButton } from "../components/rematch-button";
+import { challengeStatus } from "../challenge-status";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { randomUUID } from "expo-crypto";
@@ -27,12 +31,14 @@ export default function OnlineGame() {
   return <OnlineGameBody key={`${id}.${session?.user.id}`} />;
 }
 function OnlineGameBody() {
+  const now = useNow();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, ready } = useOnline();
   const [match, setMatch] = useState<Challenge | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Category | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [rolling, setRolling] = useState(false);
   const [pending, setPending] = useState<ChallengeRequest | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -65,8 +71,9 @@ function OnlineGameBody() {
         if (raw) {
           const saved = JSON.parse(raw);
           if (
-            saved.action === "move" &&
-            saved.matchId === id &&
+            ((["move", "cancel"].includes(saved.action) &&
+              saved.matchId === id) ||
+              (saved.action === "join" && typeof saved.code === "string")) &&
             typeof saved.requestId === "string"
           )
             setPending(saved);
@@ -221,13 +228,23 @@ function OnlineGameBody() {
       <Heading>
         {match.status === "waiting"
           ? "Start a rivalry"
-          : match.status === "complete"
-            ? "The dice have spoken!"
-            : mine
-              ? "Your turn!"
-              : "Their turn"}
+          : match.status === "cancelled"
+            ? "Invitation closed"
+            : match.status === "complete"
+              ? "The dice have spoken!"
+              : mine
+                ? "Your turn!"
+                : "Their turn"}
       </Heading>
+      <Copy>{challengeStatus(match, session.user.id, now)}</Copy>
       {error && <Copy>{error}</Copy>}
+      {match.status === "cancelled" && (
+        <Copy>
+          This invitation is closed. You can create another challenge whenever
+          you’re ready.
+        </Copy>
+      )}
+      {match.status === "complete" && <RematchButton matchId={match.id} />}
       {pending && (
         <View style={s.panel}>
           <Copy>
@@ -249,14 +266,86 @@ function OnlineGameBody() {
       )}
       {match.status === "waiting" && (
         <View style={s.panel}>
-          <Copy>Share this invitation code with a friend:</Copy>
+          <Copy>
+            {match.invited_id === session.user.id
+              ? `${match.host_name} challenged you to a rematch.`
+              : match.invited_name
+                ? `Your rematch invitation is for ${match.invited_name}.`
+                : "Share this invitation code with a friend:"}
+          </Copy>
           <Text selectable style={[s.heading, { color: c.mint, fontSize: 24 }]}>
             {match.invite_code}
           </Text>
           <Copy>
-            They can sign in and enter it under Challenge friends. Invitations
-            last seven days.
+            {Date.parse(match.expires_at) < now
+              ? "This invitation has expired."
+              : "Invitations last seven days. Join from Challenge friends using the code."}
           </Copy>
+          {Date.parse(match.expires_at) >= now &&
+            match.host_id === session.user.id && (
+              <InvitationActions
+                code={match.invite_code}
+                name={match.host_name}
+              />
+            )}
+          {Date.parse(match.expires_at) >= now &&
+            match.invited_id === session.user.id && (
+              <Button
+                title="Accept rematch →"
+                disabled={busy || !!pending || !loaded}
+                onPress={() =>
+                  void send({
+                    action: "join",
+                    requestId: randomUUID(),
+                    code: match.invite_code,
+                    name: match.invited_name!,
+                    avatar: match.invited_avatar!,
+                  })
+                }
+              />
+            )}
+          {confirmCancel ? (
+            <>
+              <Copy>
+                {match.host_id === session.user.id
+                  ? "Cancel this unused invitation?"
+                  : "Decline this rematch invitation?"}
+              </Copy>
+              <Button
+                title={
+                  match.host_id === session.user.id
+                    ? "Yes, cancel invitation"
+                    : "Yes, decline rematch"
+                }
+                secondary
+                disabled={busy || !!pending}
+                onPress={() =>
+                  void send({
+                    action: "cancel",
+                    matchId: match.id,
+                    requestId: randomUUID(),
+                    revision: match.revision,
+                  })
+                }
+              />
+              <Button
+                title="Keep invitation"
+                disabled={busy || !!pending}
+                onPress={() => setConfirmCancel(false)}
+              />
+            </>
+          ) : (
+            <Button
+              title={
+                match.host_id === session.user.id
+                  ? "Cancel invitation"
+                  : "Decline rematch"
+              }
+              secondary
+              disabled={busy || !!pending}
+              onPress={() => setConfirmCancel(true)}
+            />
+          )}
         </View>
       )}
       {game && (

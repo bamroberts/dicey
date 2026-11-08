@@ -5,8 +5,8 @@ import { Avatar, Button, Copy, Heading, Page, s } from "../components/ui";
 import { useGame } from "../game-context";
 import { avatars, colors as c } from "../theme";
 export default function Setup() {
-  const { seats: savedSeats, game, startGame } = useGame();
-  const [seats, setSeats] = useState(savedSeats);
+  const { seats: savedSeats, game, startGame, setupDraft } = useGame();
+  const [seats, setSeats] = useState(setupDraft ?? savedSeats);
   const valid = seats.every((p) => p.name.trim().length > 0);
   return (
     <Page>

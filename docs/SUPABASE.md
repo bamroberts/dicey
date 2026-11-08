@@ -26,46 +26,65 @@
   cannot both commit. Pending moves persist on the client before transmission;
   uncertain responses can be retried safely or reconciled with server state.
 
-This is a first online slice, not a public-launch service. Match cancellation,
+This is a first online slice, not a public-launch service. Active-game cancellation,
 push notifications, realtime subscriptions, profiles/friends, public rankings,
 account deletion flows, abuse quotas, and large-history pagination remain future
 work. Online moves require connectivity; they are not queued for offline play.
 
-## Hosted setup (not yet deployed)
+## Shared hosted beta: q-me
 
-Use a dedicated Dicey Supabase project, or explicitly choose an existing project.
-Tables and RPCs use the `dicey_` prefix. No hosted project has been modified.
+The owner selected q-me (`ldokicqlaienedeetjyj`) for the beta. Dicey’s tables,
+privileged RPCs, policies, and `dicey` Edge Function are deployed there. The
+client's ignored `mobile/.env.local` holds only the project URL/publishable key.
+The existing q-me tables, Supabase migration ledger, and auth/email settings
+were left unchanged. Dicey uses its own `dicey_schema_migrations` ledger so
+q-me's future CLI migrations do not see unexplained remote versions.
 
-1. Put the project URL and **publishable** key into `mobile/.env.local` using
-   `mobile/.env.example`. These are client configuration, not service-role keys.
-2. From the repository root, link the selected project and review/apply the
-   migration, then deploy the Edge Function:
+**Do not run `supabase db push`, `config push`, or resets against this shared
+project from the Dicey repo.** Use the additive, owner-selected deployment path:
 
-   ```sh
-   npx supabase link --project-ref YOUR_PROJECT_REF
-   npx supabase db push --dry-run
-   npx supabase db push
-   npx supabase functions deploy dicey
-   ```
+```sh
+# Repository root: reads/reviews pending Dicey migrations first
+node scripts/deploy-shared-schema.mjs
+node scripts/deploy-shared-schema.mjs --apply
+npx supabase functions deploy dicey --remote=ldokicqlaienedeetjyj --yes
+```
 
-   The function imports `src/game/engine.ts` directly; deploy from this repo.
-   Keep JWT verification enabled. Service-role credentials exist only in the
-   Supabase function environment and must never go in Expo variables.
-3. Enable email authentication and configure both **Magic Link** and **Confirm
-   signup** email templates to include `{{ .Token }}`. The supplied
-   `supabase/templates/sign-in.html` is the template. Hosted email configuration
-   and SMTP must be configured in the Supabase dashboard; deploying a function
-   does not apply the local email-template configuration. The default email
-   service may restrict recipients; use a suitable SMTP provider for real testing.
-4. Restart Expo after changing `.env.local`. Sign in with two separate email
-   accounts/devices, create/join a challenge, score a turn, close/reopen, and test
-   retry/reconnect on real phones. Browser local history and phone history are
-   separate until explicitly backed up to an account.
+The function imports `src/game/engine.ts` directly. JWT verification remains
+on. Service-role credentials exist only in Supabase's server environment; they
+are never bundled in the app. The integration harness refuses hosted targets.
+
+Auth users and service quotas are shared with q-me. Dicey accepts numeric email
+codes **or the original Supabase sign-in link copied from the email**. Link
+verification extracts only a token from the configured project's verification
+URL; it does not follow q-me's redirect. Shared email branding/redirects stay
+intact. Default Supabase email-delivery restrictions and rate limits may limit
+new testers; SMTP/provider changes need a separate review for both apps.
+
+Fresh checkout: copy `mobile/.env.example` to `.env.local` and set the shared
+project URL and its publishable key. Restart Expo after configuration changes.
+On two accounts/devices, sign in, create/join, score, close/reopen, and test retry.
+We did not send hosted test emails or run fixture/reset harnesses there.
 
 Configuration references:
 [React Native authentication](https://supabase.com/docs/guides/auth/quickstarts/react-native),
-[email OTP templates](https://supabase.com/docs/guides/auth/auth-email-passwordless),
+[email sign-in](https://supabase.com/docs/guides/auth/auth-email-passwordless),
 [Edge Function authentication](https://supabase.com/docs/guides/functions/auth).
+
+## Invitations and rematches
+
+Completed online games now appear in Game history and have “Challenge a rematch”.
+A new targeted invitation appears in the previous opponent's inbox; only that
+opponent can accept its seat. Invitations can be declined by the recipient or
+cancelled by the sender before a game starts. A concurrent accept/cancel cannot
+both commit. Cancellation is not a way to erase an active game's results.
+
+Local history offers “Play again with this crew”. It prefills names/avatars on
+the setup screen; it does not overwrite an existing game until Start is pressed.
+Native share opens the platform's share sheet; a separate copy action and web
+clipboard fallback work without a public web/deep-link host. Users send the
+invitation themselves. Turn/rematch invitations sort ahead of waiting/completed
+matches, and expired/cancelled states are labelled.
 
 ## Local validation
 
@@ -107,13 +126,14 @@ npm run lint
 npm run build:web
 ```
 
-Database behavior has been exercised locally; hosted configuration, email
-provider delivery, and two physical devices still need validation after linking.
+Database behavior has been exercised locally. Hosted schema/function and
+anonymous-access checks pass; hosted email delivery and two-device end-to-end
+play still need the owner’s sign-in/device check.
 
 ## Verified in this implementation
 
-41 unit tests pass. Expo typecheck/lint and web/iOS bundle exports pass. The
+47 unit tests pass. Expo typecheck/lint and web/iOS bundle exports pass. The
 local integration scenario passes, including competing requests and privileged
 RPC denial. Two browser sessions completed email-code sign-in, create/join,
 roll/score and turn transfer. A full local game was archived through the UI;
-its cloud backup persisted after reload. No hosted deployment has been applied.
+its cloud backup persisted after reload. The shared hosted deployment preserves q-me’s original migration versions.

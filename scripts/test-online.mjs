@@ -71,7 +71,36 @@ try {
   const { error: backupError } = await host.client.from('dicey_local_history').insert({ game_id: historyId, finished_at: new Date().toISOString(), snapshot: { game: match.state } }); assert.equal(backupError, null);
   assert.deepEqual((await guest.client.from('dicey_local_history').select('*')).data, []);
   assert.ok((await guest.client.from('dicey_local_history').insert({ owner_id: host.id, game_id: randomUUID(), finished_at: new Date().toISOString(), snapshot: { game: match.state } })).error);
-  console.log('PASS: two-player complete game, duplicate/concurrent requests, stale moves, turn ownership, match RLS, and private history backups');
+  // A rematch is targeted: the original opponent sees it in their inbox,
+  // while a third account cannot steal the seat even with the invite code.
+  const rematchRequest = { action: 'rematch', matchId: match.id, requestId: randomUUID() };
+  const rematch = await call(guest.token, rematchRequest);
+  assert.equal(rematch.status, 200, JSON.stringify(rematch)); matches.push(rematch.match.id);
+  assert.equal(rematch.match.host_id, guest.id); assert.equal(rematch.match.invited_id, host.id);
+  assert.equal((await call(guest.token, rematchRequest)).match.id, rematch.match.id);
+  assert.ok((await call(host.token, { action: 'list' })).matches.some(m => m.id === rematch.match.id));
+  assert.equal((await host.client.from('dicey_matches').select('*').eq('id', rematch.match.id)).data.length, 1);
+  assert.equal((await call(outsider.token, { action: 'join', code: rematch.match.invite_code, requestId: randomUUID(), name: 'Hijack', avatar: 0 })).status, 400);
+  const accepted = await call(host.token, { action: 'join', code: rematch.match.invite_code, requestId: randomUUID(), name: 'Host', avatar: 0 });
+  assert.equal(accepted.status, 200); assert.equal(accepted.match.state.players[0].id, guest.id);
+  assert.equal((await call(guest.token, { action: 'cancel', matchId: rematch.match.id, requestId: randomUUID(), revision: accepted.match.revision })).status, 409);
+  const declinedMatch = await call(host.token, { action: 'rematch', matchId: match.id, requestId: randomUUID() });
+  assert.equal(declinedMatch.status, 200); matches.push(declinedMatch.match.id);
+  const decline = { action: 'cancel', matchId: declinedMatch.match.id, requestId: randomUUID(), revision: declinedMatch.match.revision };
+  const declined = await call(guest.token, decline);
+  assert.equal(declined.status, 200, JSON.stringify(declined)); assert.equal(declined.match.status, 'cancelled');
+  assert.deepEqual((await call(guest.token, decline)).match, declined.match);
+  assert.equal((await call(guest.token, { action: 'join', code: declinedMatch.match.invite_code, requestId: randomUUID(), name: 'Guest', avatar: 1 })).status, 400);
+  const racing = await call(host.token, { action: 'create', requestId: randomUUID(), name: 'Host', avatar: 0 });
+  assert.equal(racing.status, 200); matches.push(racing.match.id);
+  const outcomes = await Promise.all([
+    call(host.token, { action: 'cancel', matchId: racing.match.id, requestId: randomUUID(), revision: racing.match.revision }),
+    call(guest.token, { action: 'join', code: racing.match.invite_code, requestId: randomUUID(), name: 'Guest', avatar: 1 }),
+  ]);
+  assert.equal(outcomes.filter(o => o.status === 200).length, 1, JSON.stringify(outcomes));
+  const finalRace = (await call(host.token, { action: 'get', matchId: racing.match.id })).match;
+  assert.ok(['playing', 'cancelled'].includes(finalRace.status));
+  console.log('PASS: two-player complete game, duplicate/concurrent requests, stale moves, turn ownership, match RLS, private history backups, targeted rematches, decline/cancel, and join/cancel races');
 } finally {
   for (const id of matches) await admin.from('dicey_matches').delete().eq('id', id);
   for (const user of users) { await admin.from('dicey_local_history').delete().eq('owner_id', user.id); await admin.auth.admin.deleteUser(user.id); }

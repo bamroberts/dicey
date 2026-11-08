@@ -1,3 +1,5 @@
+import { Challenge, challengeRequest } from "../lib/challenges";
+import { RematchButton } from "../components/rematch-button";
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Text, View } from "react-native";
@@ -12,14 +14,28 @@ export default function History() {
   return <HistoryBody key={session?.user.id ?? "offline"} />;
 }
 function HistoryBody() {
-  const { history } = useGame();
+  const { history, prepareRematch } = useGame();
   const { session } = useOnline();
+  const [onlineGames, setOnlineGames] = useState<Challenge[]>([]);
   const [cloud, setCloud] = useState<HistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!session || !supabase) return;
     let active = true;
+    challengeRequest({ action: "list" })
+      .then((data) => {
+        if (active)
+          setOnlineGames(
+            (data.matches ?? []).filter((m) => m.status === "complete"),
+          );
+      })
+      .catch(() => {
+        if (active)
+          setError(
+            "Could not load online results. Local games are still available.",
+          );
+      });
     supabase
       .from("dicey_local_history")
       .select("snapshot")
@@ -66,11 +82,55 @@ function HistoryBody() {
   return (
     <Page>
       <Heading>Your game shelf</Heading>
-      <Copy>
-        Completed pass-and-play games, saved on this device. Online results live
-        in your challenges.
-      </Copy>
+      <Copy>Your finished games, friendly rivalries, and next rematches.</Copy>
       {error && <Copy>{error}</Copy>}
+      {session && (
+        <Button
+          title="Refresh online results"
+          secondary
+          disabled={busy}
+          onPress={() => {
+            setBusy(true);
+            challengeRequest({ action: "list" })
+              .then((data) => {
+                setOnlineGames(
+                  (data.matches ?? []).filter((m) => m.status === "complete"),
+                );
+                setError(null);
+              })
+              .catch(() =>
+                setError(
+                  "Could not refresh online results. Try again when connected.",
+                ),
+              )
+              .finally(() => setBusy(false));
+          }}
+        />
+      )}
+      {onlineGames.map((match) => (
+        <View key={match.id} style={s.panel}>
+          <Text style={s.label}>
+            Online · {new Date(match.updated_at).toLocaleDateString()}
+          </Text>
+          <Copy>
+            {match.host_name} vs {match.guest_name}
+          </Copy>
+          {match.state?.players.map((p) => (
+            <Text key={p.id} style={s.label}>
+              {p.name} · {totals(p.scores).total} points
+            </Text>
+          ))}
+          <RematchButton matchId={match.id} />
+          <Button
+            title="View scorecards"
+            secondary
+            onPress={() =>
+              router.push({ pathname: "/challenge", params: { id: match.id } })
+            }
+          />
+        </View>
+      ))}
+      <Text style={s.label}>Pass-and-play games</Text>
       {entries.length === 0 && (
         <Copy>Your first finished game will appear here.</Copy>
       )}
@@ -102,6 +162,13 @@ function HistoryBody() {
               </View>
             </View>
           ))}
+          <Button
+            title="Play again with this crew →"
+            onPress={() => {
+              prepareRematch(entry.seats.map((s) => ({ ...s })));
+              router.push("/setup");
+            }}
+          />
           {session && (
             <Button
               title={

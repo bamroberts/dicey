@@ -22,7 +22,7 @@ Deno.serve(async req => {
     if (!body || typeof body !== 'object') throw new Error('Invalid request');
     const actor = user.id;
     if (body.action === 'list') {
-      const { data, error } = await admin.from('dicey_matches').select('*').or(`host_id.eq.${actor},guest_id.eq.${actor}`).order('updated_at', { ascending: false }).limit(100);
+      const { data, error } = await admin.from('dicey_matches').select('*').or(`host_id.eq.${actor},guest_id.eq.${actor},invited_id.eq.${actor}`).order('updated_at', { ascending: false }).limit(100);
       if (error) throw error; return json({ matches: data });
     }
     if (body.action === 'create') {
@@ -39,17 +39,41 @@ Deno.serve(async req => {
     const query = admin.from('dicey_matches').select('*');
     const { data: match, error } = await (joining ? query.eq('invite_code', body.code.toUpperCase()) : query.eq('id', body.matchId)).single();
     if (error || !match) return json({ error: 'Challenge not found' }, 404);
-    if (!joining && match.host_id !== actor && match.guest_id !== actor) return json({ error: 'Challenge not found' }, 404);
+    if (!joining && match.host_id !== actor && match.guest_id !== actor && match.invited_id !== actor) return json({ error: 'Challenge not found' }, 404);
     if (body.action === 'get') return json({ match });
+    if (body.action === 'rematch') {
+      if (!uuid(body.requestId) || match.status !== 'complete' || ![match.host_id, match.guest_id].includes(actor)) throw new Error('Only completed games can be challenged again');
+      const wasHost = match.host_id === actor;
+      const { error: insertError } = await admin.from('dicey_matches').upsert({
+        id: body.requestId, host_id: actor,
+        host_name: wasHost ? match.host_name : match.guest_name,
+        host_avatar: wasHost ? match.host_avatar : match.guest_avatar,
+        invited_id: wasHost ? match.guest_id : match.host_id,
+        invited_name: wasHost ? match.guest_name : match.host_name,
+        invited_avatar: wasHost ? match.guest_avatar : match.host_avatar,
+        rematch_of: match.id, invite_code: crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase(),
+      }, { onConflict: 'id', ignoreDuplicates: true });
+      if (insertError) throw insertError;
+      const { data: rematch } = await admin.from('dicey_matches').select('*').eq('id', body.requestId).eq('host_id', actor).eq('rematch_of', match.id).single();
+      if (!rematch) throw new Error('Could not create rematch');
+      return json({ match: rematch });
+    }
+
     if (!uuid(body.requestId)) throw new Error('Invalid request ID');
     // A response lost after commit must be safe to retry, even after turn rotation.
     const { data: receipt } = await admin.from('dicey_move_receipts').select('result').eq('match_id', match.id).eq('request_id', body.requestId).eq('actor_id', actor).maybeSingle();
     if (receipt) return json({ match: receipt.result });
+    if (body.action === 'cancel') {
+      if (!Number.isInteger(body.revision)) throw new Error('Invalid revision');
+      const { data, error } = await admin.rpc('dicey_cancel_invitation', { p_match: match.id, p_request: body.requestId, p_actor: actor, p_revision: body.revision });
+      if (error) return json({ error: error.message.includes('STALE_REVISION') ? 'The invitation changed. Refresh to see its status.' : 'Only unused invitations can be cancelled.' }, 409);
+      return json({ match: data });
+    }
     let state: Game;
     let guest: { p_guest: string; p_name: string; p_avatar: number } | undefined;
     if (joining) {
       if (match.guest_id === actor) return json({ match });
-      if (match.status !== 'waiting' || match.host_id === actor || Date.parse(match.expires_at) < Date.now()) throw new Error('Invitation is unavailable or expired');
+      if (match.status !== 'waiting' || match.host_id === actor || (match.invited_id && match.invited_id !== actor) || Date.parse(match.expires_at) < Date.now()) throw new Error('Invitation is unavailable or expired');
       const p = profile(body);
       state = createGame([{ id: match.host_id, name: match.host_name }, { id: actor, name: p.name }]);
       guest = { p_guest: actor, p_name: p.name, p_avatar: p.avatar };

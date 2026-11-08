@@ -36,7 +36,8 @@ environment variables, local play and history work and the online screen explain
 that the service is not connected.
 
 The wordmark currently uses real styled text; custom vector lettering and final
-launcher/splash icons remain artwork tasks. Template launcher assets remain.
+splash polish remain artwork tasks. The new `assets/dicey-icon-v1.png` is
+configured for launchers and favicon; installed-device mask QA is pending.
 The generated avatar sheet is clipped in the UI and kept unmodified; its prompt
 is in `../design/AVATAR-PROMPT.txt`. Fonts include their upstream license files
 in the installed font packages (SIL Open Font License).
@@ -48,7 +49,12 @@ Sessions are versioned, validated on load, and saved after moves via AsyncStorag
 and handoff survive reloads. Writes are serialized; storage failures are shown
 in the UI. Malformed/incompatible saves require an explicit start-fresh action.
 A hard process kill before an asynchronous write finishes can still lose the
-last move. Native interruption recovery needs device testing. Hosted online
-activation, push notifications, sound, haptics, broader screen transitions, and
+last move. Native interruption recovery needs device testing. Hosted two-device testing, push notifications, sound, haptics, broader screen transitions, and
 release packaging remain later work. Native runtime/device testing is still
 required; bundle export is not a substitute for running on a device.
+
+
+Rematches are available from Game history (online challenges and same-crew local
+setup). Invitation pages include share/copy and cancel/decline. The hosted beta
+uses the owner's shared q-me project; see `../docs/SUPABASE.md` before deploying
+migrations. Development build and push testing: `../docs/DEVICE-TESTING.md`.

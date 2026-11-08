@@ -9,7 +9,11 @@ export type Challenge = {
   host_avatar: number;
   guest_avatar: number | null;
   invite_code: string;
-  status: "waiting" | "playing" | "complete";
+  invited_id: string | null;
+  invited_name: string | null;
+  invited_avatar: number | null;
+  rematch_of: string | null;
+  status: "waiting" | "playing" | "complete" | "cancelled";
   state: Game | null;
   revision: number;
   updated_at: string;
@@ -26,6 +30,8 @@ export type ChallengeRequest =
       avatar: number;
     }
   | { action: "get"; matchId: string }
+  | { action: "rematch"; matchId: string; requestId: string }
+  | { action: "cancel"; matchId: string; requestId: string; revision: number }
   | {
       action: "move";
       requestId: string;

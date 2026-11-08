@@ -122,7 +122,21 @@ accounts and invite-code challenges with two players alternating turns. See
   local stack. A full two-player game and privacy/turn/retry checks pass.
 - Browser sign-in using the local mail inbox, invitation creation/join across
   two signed-in browser sessions, roll/score, and turn transfer checked.
-- Hosted activation still requires selecting/providing the Dicey project.
-  Existing BamSight and q-me hosted projects were left unchanged.
+- Hosted beta now reuses q-me by owner choice. Only Dicey-prefixed objects and
+  the Dicey function were added; q-me migrations/auth configuration are preserved.
 - Next after activation: physical-device online testing, then notifications,
   invite sharing polish, match cancellation, and account/profile polish.
+
+
+## Invitation polish and next device milestone
+
+- Rematches from online history/results target the previous opponent. Local
+  history prefills the original crew without overwriting the active game.
+- Invitation share/copy, cancellation/decline, expiry labels, and inbox priority
+  implemented and tested in the local stack. A Dicey app icon replaces the Expo
+  starter icon; final vector wordmark and splash polish remain artwork tasks.
+- Development-client package/build profiles are prepared. Expo Go remains the
+  default command. No cloud build, signing setup, or paid account was created.
+- Next: owner signs into the hosted beta on two devices. Then implement/test
+  turn notifications using the path in `docs/DEVICE-TESTING.md`.
+- Hosting decision and costs: `docs/HOSTING.md`; no Pro upgrade is needed now.

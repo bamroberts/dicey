@@ -99,3 +99,12 @@ Never hide essential information in animation or audio.
 Keep rules unchanged during visual work. Brand name changes do not rename the
 Yahtzee scoring category. Display font choice, asset details, animation, and
 sound remain implementation decisions; the Arcade Night direction is settled.
+
+
+## App icon
+
+`mobile/assets/dicey-icon-v1.png` is the first launcher/favicon asset: a mint
+five-pip die with pink/purple depth and a lightning accent. Generated using the
+built-in imagegen tool; prompt: `design/APP-ICON-PROMPT.txt`. Native platform mask
+and splash QA remain part of installed-build testing. The wordmark is still
+styled display text pending final vector lettering.

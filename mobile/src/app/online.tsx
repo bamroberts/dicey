@@ -1,3 +1,6 @@
+import { parseEmailProof } from "../auth-input";
+import { useNow } from "../hooks/use-now";
+import { challengeRank, challengeStatus } from "../challenge-status";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 import { randomUUID } from "expo-crypto";
@@ -17,6 +20,7 @@ export default function Online() {
   return <OnlineBody key={session?.user.id ?? "offline"} />;
 }
 function OnlineBody() {
+  const now = useNow();
   const { session, ready } = useOnline();
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
@@ -95,9 +99,7 @@ function OnlineBody() {
     return (
       <Page>
         <Heading>Your next rival awaits</Heading>
-        <Copy>
-          Sign in with an email code to pick up your challenges on any device.
-        </Copy>
+        <Copy>Sign in by email to pick up your challenges on any device.</Copy>
         <Field
           label="Email"
           value={email}
@@ -112,8 +114,8 @@ function OnlineBody() {
             busy
               ? "Please wait…"
               : sent
-                ? "Send another code"
-                : "Send sign-in code"
+                ? "Send another email"
+                : "Send sign-in email"
           }
           disabled={busy || !email.trim()}
           onPress={() =>
@@ -128,24 +130,37 @@ function OnlineBody() {
         />
         {sent && (
           <>
+            <Copy>
+              Copy the sign-in link from your email and paste it below. If the
+              email includes a numeric code, you can use that instead.
+            </Copy>
             <Field
-              label="Email code"
+              label="Email code or sign-in link"
               value={token}
               onChangeText={setToken}
-              keyboardType="number-pad"
-              autoComplete="one-time-code"
-              maxLength={10}
+              keyboardType="default"
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={4096}
             />
             <Button
               title="Sign in →"
               disabled={busy || token.length < 6}
               onPress={() =>
                 void run(async () => {
-                  const { error } = await supabase!.auth.verifyOtp({
-                    email: email.trim(),
-                    token: token.trim(),
-                    type: "email",
-                  });
+                  const proof = parseEmailProof(
+                    token,
+                    process.env.EXPO_PUBLIC_SUPABASE_URL!,
+                  );
+                  const { error } = await supabase!.auth.verifyOtp(
+                    "token" in proof
+                      ? {
+                          email: email.trim(),
+                          token: proof.token,
+                          type: "email",
+                        }
+                      : { token_hash: proof.token_hash, type: "email" },
+                  );
                   if (error) throw error;
                 })
               }
@@ -254,6 +269,16 @@ function OnlineBody() {
         />
       </View>
       <Text style={s.label}>Your challenges</Text>
+      <Copy>
+        {
+          matches.filter(
+            (m) =>
+              m.status === "playing" &&
+              m.state?.players[m.state.currentPlayer].id === session.user.id,
+          ).length
+        }{" "}
+        games waiting for your turn
+      </Copy>
       <Button
         title="Refresh challenges"
         secondary
@@ -261,29 +286,31 @@ function OnlineBody() {
         onPress={() => void refresh()}
       />
       {matches.length === 0 && <Copy>No challenges yet. Start a rivalry!</Copy>}
-      {matches.map((match) => (
-        <View style={s.panel} key={match.id}>
-          <Text style={s.label}>
-            {match.host_name} vs {match.guest_name ?? "a friend"}
-          </Text>
-          <Copy>
-            {match.status === "waiting"
-              ? "Waiting for a friend"
-              : match.status === "complete"
-                ? "Game complete"
-                : match.state?.players[match.state.currentPlayer].id ===
-                    session.user.id
-                  ? "Your turn!"
-                  : "Their turn"}
-          </Copy>
-          <Button
-            title="Open challenge →"
-            onPress={() =>
-              router.push({ pathname: "/challenge", params: { id: match.id } })
-            }
-          />
-        </View>
-      ))}
+      {[...matches]
+        .sort(
+          (a, b) =>
+            challengeRank(a, session.user.id, now) -
+              challengeRank(b, session.user.id, now) ||
+            b.updated_at.localeCompare(a.updated_at),
+        )
+        .map((match) => (
+          <View style={s.panel} key={match.id}>
+            <Text style={s.label}>
+              {match.host_name} vs{" "}
+              {match.guest_name ?? match.invited_name ?? "a friend"}
+            </Text>
+            <Copy>{challengeStatus(match, session.user.id, now)}</Copy>
+            <Button
+              title="Open challenge →"
+              onPress={() =>
+                router.push({
+                  pathname: "/challenge",
+                  params: { id: match.id },
+                })
+              }
+            />
+          </View>
+        ))}
       <Button
         title="Sign out"
         secondary

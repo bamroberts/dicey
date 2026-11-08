@@ -1,3 +1,15 @@
+# Dicey!
+
+A prototype being developed into an Expo game with offline pass-and-play and
+asynchronous online challenges.
+
+See [the brand and design direction](docs/BRAND.md) and [the milestones and implementation plan](docs/PLAN.md) for scope, rules,
+progress, and validation commands. The active Expo app lives in [`mobile/`](mobile/README.md) and uses the shared
+engine in `src/game`. Run `cd mobile` then `npm start` to develop it.
+The root React app remains the original prototype.
+
+## Original prototype instructions
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

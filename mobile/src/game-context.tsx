@@ -1,3 +1,4 @@
+import { randomUUID } from "expo-crypto";
 import React, {
   createContext,
   useContext,
@@ -6,28 +7,37 @@ import React, {
   useState,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Game } from "../../src/game/engine";
+import { createGame, Game } from "../../src/game/engine";
 import { decodeSession, Seat } from "./saved-session";
+import { decodeHistory, HistoryEntry, recordCompleted } from "./history";
 import { Button, Copy, Page } from "./components/ui";
 export type { Seat } from "./saved-session";
 const KEY = "dicey.session.v1";
-type Session = {
+type LocalState = {
+  gameId: string;
   game: Game | null;
-  setGame: React.Dispatch<React.SetStateAction<Game | null>>;
   seats: Seat[];
-  setSeats: React.Dispatch<React.SetStateAction<Seat[]>>;
   handoff: boolean;
+  history: HistoryEntry[];
+};
+type Session = LocalState & {
+  setGame: React.Dispatch<React.SetStateAction<Game | null>>;
   setHandoff: React.Dispatch<React.SetStateAction<boolean>>;
   saveError: string | null;
+  startGame: (seats: Seat[]) => void;
 };
 const Context = createContext<Session | null>(null);
 export function GameProvider({ children }: { children: React.ReactNode }) {
-  const [game, setGame] = useState<Game | null>(null);
-  const [seats, setSeats] = useState<Seat[]>([
-    { id: "p1", name: "Ben", avatar: 4 },
-    { id: "p2", name: "Mia", avatar: 5 },
-  ]);
-  const [handoff, setHandoff] = useState(false);
+  const [state, setState] = useState<LocalState>(() => ({
+    gameId: randomUUID(),
+    game: null,
+    seats: [
+      { id: "p1", name: "Ben", avatar: 4 },
+      { id: "p2", name: "Mia", avatar: 5 },
+    ],
+    handoff: false,
+    history: [],
+  }));
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -39,9 +49,24 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (!active) return;
         if (raw) {
           const saved = decodeSession(raw);
-          setGame(saved.game);
-          setSeats(saved.seats);
-          setHandoff(saved.handoff);
+          const metadata = JSON.parse(raw);
+          const gameId =
+            typeof metadata.gameId === "string"
+              ? metadata.gameId
+              : randomUUID();
+          const history = recordCompleted(
+            decodeHistory(metadata.history),
+            gameId,
+            saved.game,
+            saved.seats,
+          );
+          setState({
+            gameId,
+            game: saved.game,
+            seats: saved.seats,
+            handoff: saved.handoff,
+            history,
+          });
         }
         setReady(true);
       })
@@ -54,8 +79,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => {
     if (!ready) return;
-    const raw = JSON.stringify({ version: 1, game, seats, handoff });
-    // Serialize writes so an older async save cannot overwrite a newer turn.
+    const raw = JSON.stringify({ version: 1, ...state });
     writes.current = writes.current
       .then(() => AsyncStorage.setItem(KEY, raw))
       .then(() => setSaveError(null))
@@ -64,7 +88,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           "Could not save this game. Keep the app open; your next move will retry.",
         ),
       );
-  }, [game, seats, handoff, ready]);
+  }, [state, ready]);
   if (loadError && !ready)
     return (
       <Page>
@@ -89,7 +113,44 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     );
   return (
     <Context.Provider
-      value={{ game, setGame, seats, setSeats, handoff, setHandoff, saveError }}
+      value={{
+        ...state,
+        saveError,
+        setGame: (value) => {
+          const now = new Date().toISOString();
+          setState((current) => {
+            const game =
+              typeof value === "function" ? value(current.game) : value;
+            return {
+              ...current,
+              game,
+              history: recordCompleted(
+                current.history,
+                current.gameId,
+                game,
+                current.seats,
+                now,
+              ),
+            };
+          });
+        },
+        setHandoff: (value) =>
+          setState((current) => ({
+            ...current,
+            handoff:
+              typeof value === "function" ? value(current.handoff) : value,
+          })),
+        startGame: (seats) => {
+          const gameId = randomUUID();
+          setState((current) => ({
+            ...current,
+            gameId,
+            seats,
+            game: createGame(seats),
+            handoff: false,
+          }));
+        },
+      }}
     >
       {children}
     </Context.Provider>

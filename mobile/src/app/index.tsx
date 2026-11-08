@@ -60,13 +60,16 @@ export default function Home() {
           />
         ))}
       <Button title="Play together →" onPress={() => router.push("/setup")} />
-      <View style={s.panel}>
-        <Text style={s.label}>✦ Challenge friends</Text>
-        <Copy>
-          Online challenges are coming. For now, grab your crew and share a
-          screen.
-        </Copy>
-      </View>
+      <Button
+        title="Challenge friends →"
+        secondary
+        onPress={() => router.push("/online")}
+      />
+      <Button
+        title="Game history →"
+        secondary
+        onPress={() => router.push("/history")}
+      />
       <Copy>2–4 players · One device · No account needed</Copy>
     </Page>
   );

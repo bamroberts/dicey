@@ -112,3 +112,17 @@ export function winners(game: Game): readonly Player[] {
 export function round(game: Game): number {
   return Math.min(13, 1 + Math.min(...game.players.map(p => Object.keys(p.scores).length)));
 }
+
+export type Move = { kind: 'roll' } | { kind: 'hold'; index: number } | { kind: 'score'; category: Category };
+export function applyOnlineMove(game: Game, actor: string, move: Move, random: () => number): Game {
+  if (game.status !== 'playing') throw new Error('Game is complete');
+  if (game.players[game.currentPlayer].id !== actor) throw new Error('It is not your turn');
+  switch (move.kind) {
+    case 'roll': return rollDice(game, random);
+    case 'hold': return toggleHold(game, move.index);
+    case 'score':
+      if (!CATEGORIES.includes(move.category)) throw new Error('Unknown category');
+      return commitScore(game, move.category);
+    default: throw new Error('Unknown move');
+  }
+}

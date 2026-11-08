@@ -26,7 +26,14 @@ three-roll limit, full score previews and confirmation, player handoff, final
 scorecards with section totals, shared winners, rematch, and automatic local
 save/resume. Score confirmation stays pinned beneath the scrolling scorecard.
 A 950ms roll lock prevents double taps; unheld dice animate in a stagger, with
-reduced-motion support. Three dice markers show remaining rolls.
+reduced-motion support. Three dice markers show remaining rolls. Completed
+games are archived automatically in Game history.
+
+Supabase sign-in, optional private result backups, and two-player asynchronous
+invite challenges are implemented. See [Supabase setup](../docs/SUPABASE.md)
+for the required project configuration and local test preview. Without project
+environment variables, local play and history work and the online screen explains
+that the service is not connected.
 
 The wordmark currently uses real styled text; custom vector lettering and final
 launcher/splash icons remain artwork tasks. Template launcher assets remain.
@@ -41,7 +48,7 @@ Sessions are versioned, validated on load, and saved after moves via AsyncStorag
 and handoff survive reloads. Writes are serialized; storage failures are shown
 in the UI. Malformed/incompatible saves require an explicit start-fresh action.
 A hard process kill before an asynchronous write finishes can still lose the
-last move. Native interruption recovery needs device testing. Online challenges,
-sound, haptics, broader screen transitions, and release packaging remain later work. The online feature is labelled as coming, with no dead
-button. Native runtime/device testing is still required; bundle export is not
-a substitute for running on a device. Do not present this as the offline release.
+last move. Native interruption recovery needs device testing. Hosted online
+activation, push notifications, sound, haptics, broader screen transitions, and
+release packaging remain later work. Native runtime/device testing is still
+required; bundle export is not a substitute for running on a device.

@@ -8,6 +8,8 @@ progress, and validation commands. The active Expo app lives in [`mobile/`](mobi
 engine in `src/game`. Run `cd mobile` then `npm start` to develop it.
 The root React app remains the original prototype.
 
+Game history and Supabase online challenges: see [setup and validation](docs/SUPABASE.md).
+
 ## Original prototype instructions
 
 # Getting Started with Create React App

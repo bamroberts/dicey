@@ -1,18 +1,11 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { createGame } from "../../../src/game/engine";
 import { Avatar, Button, Copy, Heading, Page, s } from "../components/ui";
 import { useGame } from "../game-context";
 import { avatars, colors as c } from "../theme";
 export default function Setup() {
-  const {
-    seats: savedSeats,
-    setSeats: setSavedSeats,
-    game,
-    setGame,
-    setHandoff,
-  } = useGame();
+  const { seats: savedSeats, game, startGame } = useGame();
   const [seats, setSeats] = useState(savedSeats);
   const valid = seats.every((p) => p.name.trim().length > 0);
   return (
@@ -117,9 +110,7 @@ export default function Setup() {
         }
         disabled={!valid}
         onPress={() => {
-          setSavedSeats(seats);
-          setGame(createGame(seats));
-          setHandoff(false);
+          startGame(seats);
           router.replace("/play");
         }}
       />

@@ -109,3 +109,20 @@ Easy Peasy dependency; no dependency was added to package.json in phase 1.
   at handoff after page reload. Real-device termination/safe-area QA is outstanding.
 - Roll outcomes save immediately; the short animation is presentation only.
   No extra rolls are generated for animation. Screen transitions remain later polish.
+
+## Supabase and recorded games
+
+Supabase is the chosen online service. The first implementation uses email-code
+accounts and invite-code challenges with two players alternating turns. See
+`docs/SUPABASE.md` for the API behavior, deployment steps, and current limitations.
+
+- Local history, stable match IDs, result backups, sign-in, challenge inbox,
+  create/join, server-authoritative moves, safe retry/reconnect, and results built.
+- Supabase schema/RLS and atomic revision/idempotency RPC tested in an isolated
+  local stack. A full two-player game and privacy/turn/retry checks pass.
+- Browser sign-in using the local mail inbox, invitation creation/join across
+  two signed-in browser sessions, roll/score, and turn transfer checked.
+- Hosted activation still requires selecting/providing the Dicey project.
+  Existing BamSight and q-me hosted projects were left unchanged.
+- Next after activation: physical-device online testing, then notifications,
+  invite sharing polish, match cancellation, and account/profile polish.

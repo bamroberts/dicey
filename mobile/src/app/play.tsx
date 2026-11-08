@@ -16,21 +16,7 @@ import { Avatar, Button, Copy, Heading, Page, s } from "../components/ui";
 import { useGame } from "../game-context";
 import { RollCounter, RollingDie } from "../components/rolling-die";
 import { colors as c } from "../theme";
-const labels: Record<Category, string> = {
-  ones: "Ones",
-  twos: "Twos",
-  threes: "Threes",
-  fours: "Fours",
-  fives: "Fives",
-  sixes: "Sixes",
-  threeOfAKind: "Three of a kind",
-  fourOfAKind: "Four of a kind",
-  fullHouse: "Full house",
-  smallStraight: "Small straight",
-  largeStraight: "Large straight",
-  yahtzee: "Yahtzee!",
-  chance: "Chance",
-};
+import { labels } from "../game-labels";
 export default function Play() {
   const { game, setGame, seats, handoff, setHandoff, saveError } = useGame();
   const [selected, setSelected] = useState<Category | null>(null);
@@ -50,6 +36,7 @@ export default function Play() {
   if (game.status === "complete")
     return (
       <Page>
+        {saveError && <Copy>{saveError}</Copy>}
         <Heading>
           {winners(game).length > 1 ? "Shared glory!" : "What a game!"}
         </Heading>
